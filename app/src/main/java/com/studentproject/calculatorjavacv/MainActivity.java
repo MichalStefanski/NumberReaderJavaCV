@@ -11,17 +11,11 @@ import java.io.IOException;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame;
 import org.opencv.android.JavaCameraView;
-import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
@@ -31,36 +25,25 @@ import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
-import org.opencv.core.Size;
 import org.opencv.android.CameraBridgeViewBase;
-import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
 import org.opencv.imgproc.Imgproc;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
-import android.graphics.Bitmap;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
-import android.view.View.OnTouchListener;
 import android.view.SurfaceView;
 import android.widget.Toast;
 
-import org.tensorflow.lite.Interpreter;
 
 public class MainActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2
 {
 
     JavaCameraView javaCameraView;
     Mat mRGBA, mRGBAT;
-    private Interpreter tflite;
     private static final int CAMERA_PERMISSION_CODE = 100;
     private static final String MODEL_PATH = "mnist.tflite";
+    Classifier classifier;
 
     BaseLoaderCallback baseLoaderCallback = new BaseLoaderCallback(MainActivity.this)
     {
@@ -71,7 +54,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             {
                 case BaseLoaderCallback.SUCCESS:
                 {
-                    //javaCameraView.enableView();
+                    javaCameraView.enableView();
                     break;
                 }
                 default:
@@ -129,14 +112,15 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        checkPermission(Manifest.permission.CAMERA, CAMERA_PERMISSION_CODE);
+        javaCameraView = (JavaCameraView) findViewById(R.id.basic_camera_view);
+        javaCameraView.setVisibility(SurfaceView.VISIBLE);
+        javaCameraView.setCvCameraViewListener(MainActivity.this);
 
+        checkPermission(Manifest.permission.CAMERA, CAMERA_PERMISSION_CODE);
         try
         {
-            tflite = new Interpreter(loadModelFile());
-        }
-        catch (IOException e)
-        {
+            classifier = new Classifier(MainActivity.this);
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -154,36 +138,32 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     }
 
     @Override
-    public Mat onCameraFrame(CvCameraViewFrame inputFrame)
-    {
+    public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRGBA = inputFrame.rgba();
-        ConvertFrame cFrame = new ConvertFrame();
-        //draw rectangle
+        //draw rectangle on preview
         Rect targetFrame = new Rect((int)(mRGBA.width()*0.05), 100, (int)(mRGBA.width()*0.9), 200);
         Imgproc.rectangle(mRGBA, targetFrame.tl(), targetFrame.br(), new Scalar(0, 0, 205), 3);
+        //crop frame to rectangle size
         Mat mCROP = new Mat(mRGBA.clone(), targetFrame);
-        Mat mTHRESH = new Mat();
-//        mTHRESH to list of contours
-        mTHRESH = new ConvertFrame().BlackWhiteFrame(mCROP);
-//        Mat mTemp = mRGBA.clone();
-//        mRGBA = new ConvertFrame().BcgFrameMerger(mTHRESH, mTemp);
-        List<MatOfPoint> mEDGES = new ArrayList<MatOfPoint>();
+        //mTHRESH to list of contours
+        Mat mTHRESH = new ConvertFrame().BlackWhiteFrame(mCROP); //convert frame to black/white threshold
+        List<MatOfPoint> mEDGES = new ArrayList<MatOfPoint>(); //list of detected edges
         Mat hierarchy = new Mat();
-        Imgproc.findContours(mTHRESH, mEDGES, hierarchy,Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_NONE); //RETR_EXTERNAL
+        Imgproc.findContours(mTHRESH, mEDGES, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_NONE); //searching for contours
         if (!mEDGES.isEmpty() && !hierarchy.empty())
         {
             List<MatOfPoint> mEDGES_H = new ArrayList<MatOfPoint>();
             for(int i = 0; i < mEDGES.size(); i++)
             {
                 mEDGES_H.add(mEDGES.get(i));
-                if (hierarchy.get(0, i)[1] == -1)
+                if (hierarchy.get(0, i)[1] == -1) //filtering contours using hierarchy
                 {
                     mEDGES_H.add(mEDGES.get(i));
                 }
             }
             Mat mSKIN = markContoursOnFrame(mEDGES_H, mRGBA);
-            mRGBAT = mSKIN.t();
-            Core.flip(mSKIN,mRGBAT,1);
+            mRGBAT = mSKIN;
+            //Core.flip(mSKIN,mRGBAT,1);
             Imgproc.resize(mRGBAT,mRGBAT,mRGBA.size()); // przeskalowanie klatki
             return mRGBAT; //zwrócenie klatki do wyświetlenia
         }
@@ -193,8 +173,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
     }
 
-    private Mat markContoursOnFrame(List<MatOfPoint> listOfContours, Mat zerosFrame)
-    {
+    private Mat markContoursOnFrame(List<MatOfPoint> listOfContours, Mat zerosFrame) {
         Mat frame = zerosFrame.clone();
         Point offset = new Point((int)(frame.width()*0.05), 100);
         MatOfPoint2f figures;
@@ -254,48 +233,18 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         Imgproc.rectangle(frame, UL, LR, new Scalar(0, 255, 0), 3);
         for (Rect rect: boundRects)
         {
+            String t;
             Point TL = new Point(rect.tl().x + offset.x, rect.tl().y + offset.y);
             Point BR = new Point(rect.br().x + offset.x, rect.br().y + offset.y);
             Imgproc.rectangle(frame, TL, BR, new Scalar(255, 255, 0), 3);
+            if (frame != null)
+            {
+                t = classifier.getResult(new Mat(new ConvertFrame().BlackWhiteFrame(frame.clone()), rect));
+                tt += t;
+            }
         }
+        Imgproc.putText(frame, tt, new Point(90,50), 1, 4.0, new Scalar(255,255,255), 3);
         return frame;
-    }
-
-    private String classify(Mat mat)
-    {
-        Mat mHSV = new Mat(mat.height(), mat.width(), CvType.CV_32F);
-        mat.convertTo(mHSV, CvType.CV_32F);
-        float [] buffer = new float[(int) (mHSV.total()*mHSV.channels())];
-        mHSV.get(0,0, buffer);
-        float[][] output = new float[1][10];
-        tflite.run(buffer, output);
-        return String.valueOf(output[0]);
-    }
-
-    private String classify (List<Rect> boundRects, Mat frame)
-    {
-        String text = "";
-        Point offset = new Point((int)(frame.width()*0.05), 100);
-        List<float[]> buffers = new ArrayList<>();
-        Map<Integer, Object> outputs = new HashMap<>();
-        for (Rect rect : boundRects)
-        {
-            Point TL = new Point(rect.tl().x + offset.x, rect.tl().y + offset.y);
-            Point BR = new Point(rect.br().x + offset.x, rect.br().y + offset.y);
-            Imgproc.rectangle(frame.clone(), TL, BR, new Scalar(255, 255, 0), 3);
-            Mat model = new Mat(frame, new Rect((int)TL.x, (int)BR.y, (int)Math.abs(TL.x - BR.x), (int)Math.abs(TL.y - BR.y)));
-            Mat mHSV = new Mat(model.height(), model.width(), CvType.CV_32F);
-            model.convertTo(mHSV, CvType.CV_32F);
-            float [] buffer = new float[(int) (mHSV.total()*mHSV.channels())];
-            mHSV.get(0,0, buffer);
-            buffers.add(buffer);
-        }
-        tflite.runForMultipleInputsOutputs(buffers.toArray() ,outputs);
-        for (Map.Entry<Integer, Object> output : outputs.entrySet())
-        {
-            text += output.getValue().toString();
-        }
-        return text;
     }
 
     @Override

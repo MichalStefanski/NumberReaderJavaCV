@@ -26,7 +26,50 @@ public class ConvertFrame
         return bwFrame;
     }
 
-    public Mat BcgFrameMerger(Mat inputFrame, Mat bcgFrame)
+    public Mat ScaleToModel(Mat inputFrame)
+    {
+        int width = inputFrame.width();
+        int height = inputFrame.height();
+        Rect rect;
+        Mat bcg;
+        Mat result = new Mat(28,28, CvType.CV_8UC(inputFrame.channels()));
+
+        Scalar channels;
+        switch (inputFrame.channels())
+        {
+            case 2:
+                channels = new Scalar(255, 255);
+                break;
+            case 3:
+                channels = new Scalar(255, 255, 255);
+                break;
+            case 4:
+                channels = new Scalar(255, 255, 255, 255);
+                break;
+            default:
+                channels = new Scalar(255);
+        }
+        if(width == 0 || height == 0)
+        {
+            return result;
+        }
+        if (width < height)
+        {
+           bcg = new Mat(height, height, CvType.CV_8UC(inputFrame.channels()), channels);
+           rect = new Rect(Math.round((float)(height - width) / 2), 0, width, height);
+        }
+        else
+        {
+            bcg = new Mat(width, width, CvType.CV_8UC(inputFrame.channels()), channels);
+            rect = new Rect(0, Math.round((float)(width - height) / 2), width, height);
+        }
+        inputFrame.copyTo(bcg.submat(rect));
+        Imgproc.resize(bcg, result, result.size());
+        result = new ConvertFrame().BcgFrameMerger(result);
+        return result;
+    }
+
+    public Mat BcgFrameMerger(Mat inputFrame)
     {
         List<Mat> t = new ArrayList<Mat>();
         t.add(inputFrame);
@@ -35,7 +78,7 @@ public class ConvertFrame
         t.add(new Mat(inputFrame.height(), inputFrame.width(), CvType.CV_8UC1,new Scalar(255)));
         Mat result = new Mat();
         Core.merge(t, result);
-        result.copyTo(bcgFrame.submat(new Rect((int)(bcgFrame.width()*0.05), 100, (int)(bcgFrame.width()*0.9), 200)));
-        return bcgFrame;
+        //result.copyTo(bcgFrame.submat(new Rect((int)(bcgFrame.width()*0.05), 100, (int)(bcgFrame.width()*0.9), 200)));
+        return result;
     }
 }

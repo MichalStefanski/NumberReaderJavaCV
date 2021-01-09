@@ -126,7 +126,7 @@ public class CameraView extends AppCompatActivity implements CameraBridgeViewBas
         List<Rect> boundRects = new ArrayList<Rect>();
         String tt = "";
 
-        Rect boundRect ;//= new Rect();
+        Rect boundRect;
         for (int i = 0; i < listOfContours.size(); i++) {
             figures = new MatOfPoint2f();
             Imgproc.approxPolyDP(new MatOfPoint2f(listOfContours.get(i).toArray()), figures, 3, true);
