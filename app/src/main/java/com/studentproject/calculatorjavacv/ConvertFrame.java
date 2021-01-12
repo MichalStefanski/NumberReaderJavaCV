@@ -22,7 +22,7 @@ public class ConvertFrame
         Mat blur = new Mat();
         Imgproc.GaussianBlur(grey, blur, new Size(11,11),0, 0);
         Mat bwFrame = new Mat();
-        Imgproc.threshold(blur, bwFrame, 127, 255, Imgproc.THRESH_BINARY_INV);
+        Imgproc.threshold(blur, bwFrame, 127, 255, Imgproc.THRESH_BINARY);
         return bwFrame;
     }
 
@@ -71,7 +71,7 @@ public class ConvertFrame
 
     public Mat BcgFrameMerger(Mat inputFrame)
     {
-        List<Mat> t = new ArrayList<Mat>();
+        List<Mat> t = new ArrayList<>();
         t.add(inputFrame);
         t.add(inputFrame);
         t.add(inputFrame);

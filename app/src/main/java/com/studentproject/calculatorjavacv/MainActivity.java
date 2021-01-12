@@ -31,6 +31,7 @@ import org.opencv.imgproc.Imgproc;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
+import android.hardware.Camera;
 import android.os.Bundle;
 import android.view.SurfaceView;
 import android.widget.Toast;
@@ -106,13 +107,13 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
     }
 
-    @Override
+       @Override
     protected void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        javaCameraView = (JavaCameraView) findViewById(R.id.basic_camera_view);
+        javaCameraView = findViewById(R.id.basic_camera_view);
         javaCameraView.setVisibility(SurfaceView.VISIBLE);
         javaCameraView.setCvCameraViewListener(MainActivity.this);
 
@@ -128,7 +129,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     @Override
     public void onCameraViewStarted(int width, int height)
     {
-        mRGBA = new Mat(height, width, CvType.CV_8UC4);
+        //mRGBA = new Mat(height, width, CvType.CV_8UC4);
     }
 
     @Override
@@ -141,28 +142,18 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRGBA = inputFrame.rgba();
         //draw rectangle on preview
-        Rect targetFrame = new Rect((int)(mRGBA.width()*0.05), 100, (int)(mRGBA.width()*0.9), 200);
+        Rect targetFrame = new Rect((int)(mRGBA.width()*0.10), (int)(mRGBA.height()*0.20), (int)(mRGBA.width()*0.8), 200);
         Imgproc.rectangle(mRGBA, targetFrame.tl(), targetFrame.br(), new Scalar(0, 0, 205), 3);
         //crop frame to rectangle size
         Mat mCROP = new Mat(mRGBA.clone(), targetFrame);
         //mTHRESH to list of contours
         Mat mTHRESH = new ConvertFrame().BlackWhiteFrame(mCROP); //convert frame to black/white threshold
-        List<MatOfPoint> mEDGES = new ArrayList<MatOfPoint>(); //list of detected edges
+        List<MatOfPoint> mEDGES = new ArrayList<>(); //list of detected edges
         Mat hierarchy = new Mat();
         Imgproc.findContours(mTHRESH, mEDGES, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_NONE); //searching for contours
         if (!mEDGES.isEmpty() && !hierarchy.empty())
         {
-            List<MatOfPoint> mEDGES_H = new ArrayList<MatOfPoint>();
-            for(int i = 0; i < mEDGES.size(); i++)
-            {
-                mEDGES_H.add(mEDGES.get(i));
-                if (hierarchy.get(0, i)[1] == -1) //filtering contours using hierarchy
-                {
-                    mEDGES_H.add(mEDGES.get(i));
-                }
-            }
-            Mat mSKIN = markContoursOnFrame(mEDGES_H, mRGBA);
-            mRGBAT = mSKIN;
+            mRGBAT = markContoursOnFrame(mEDGES, mRGBA);
             //Core.flip(mSKIN,mRGBAT,1);
             Imgproc.resize(mRGBAT,mRGBAT,mRGBA.size()); // przeskalowanie klatki
             return mRGBAT; //zwrócenie klatki do wyświetlenia
@@ -175,9 +166,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
     private Mat markContoursOnFrame(List<MatOfPoint> listOfContours, Mat zerosFrame) {
         Mat frame = zerosFrame.clone();
-        Point offset = new Point((int)(frame.width()*0.05), 100);
+        Point offset = new Point((int)(frame.width()*0.10), (int)(frame.height()*0.20));
         MatOfPoint2f figures;
-        List<Rect> boundRects = new ArrayList<Rect>();
+        List<Rect> boundRects = new ArrayList<>();
         String tt = "";
 
         Rect boundRect ;//= new Rect();
@@ -187,7 +178,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             boundRect = Imgproc.boundingRect(new MatOfPoint(figures.toArray()));
             try
             {
-                if ((Math.abs(boundRect.tl().x - boundRect.br().x) > 20) && (Math.abs(boundRect.tl().x - boundRect.br().x) < (frame.width()/2)) && (Math.abs(boundRect.tl().y - boundRect.br().y)) > 20 && (Math.abs(boundRect.tl().y - boundRect.br().y)) < frame.height())
+                if ((Math.abs(boundRect.tl().x - boundRect.br().x) > 20) && (Math.abs(boundRect.tl().x - boundRect.br().x) < Math.round(frame.width()/2)) && (Math.abs(boundRect.tl().y - boundRect.br().y)) > 20 && (Math.abs(boundRect.tl().y - boundRect.br().y)) < frame.height())
                 {
                     boundRects.add(boundRect);
                 }
@@ -198,50 +189,14 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             }
         }
 
-        int foundTLX = 0;
-        int foundTLY = 0;
-        int foundBRX = 0;
-        int foundBRY = 0;
-
-        try
-        {
-            for (int i = 1; i < boundRects.size(); i++)
-            {
-                if (boundRects.get(i).tl().x < boundRects.get(foundTLX).tl().x) foundTLX = i;
-                if (boundRects.get(i).tl().y < boundRects.get(foundTLY).tl().y) foundTLY = i;
-                if (boundRects.get(i).br().x > boundRects.get(foundBRX).br().x) foundBRX = i;
-                if (boundRects.get(i).br().y > boundRects.get(foundBRY).br().y) foundBRY = i;
-            }
-        }
-        catch (Exception exc)
-        {
-            exc.printStackTrace();
-        }
-
-        Point LR;
-        Point UL;
-        try
-        {
-            UL = new Point(boundRects.get(foundTLX).tl().x + (int)(frame.width()*0.05), boundRects.get(foundTLY).tl().y + 100);
-            LR = new Point(boundRects.get(foundBRX).br().x + (int)(frame.width()*0.05), boundRects.get(foundBRY).br().y + 100);
-        }
-        catch(Exception exct)
-        {
-            UL = new Point((int)(frame.width()*0.05),100);
-            LR = new Point((int)(frame.width()*0.05),100);
-        }
-        Imgproc.rectangle(frame, UL, LR, new Scalar(0, 255, 0), 3);
         for (Rect rect: boundRects)
         {
             String t;
             Point TL = new Point(rect.tl().x + offset.x, rect.tl().y + offset.y);
             Point BR = new Point(rect.br().x + offset.x, rect.br().y + offset.y);
             Imgproc.rectangle(frame, TL, BR, new Scalar(255, 255, 0), 3);
-            if (frame != null)
-            {
-                t = classifier.getResult(new Mat(new ConvertFrame().BlackWhiteFrame(frame.clone()), rect));
-                tt += t;
-            }
+            t = classifier.getResult(new Mat(new ConvertFrame().BlackWhiteFrame(frame.clone()), rect));
+            tt += t;
         }
         Imgproc.putText(frame, tt, new Point(90,50), 1, 4.0, new Scalar(255,255,255), 3);
         return frame;
