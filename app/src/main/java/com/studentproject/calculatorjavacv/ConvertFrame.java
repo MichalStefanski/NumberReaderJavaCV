@@ -65,6 +65,7 @@ public class ConvertFrame
         }
         inputFrame.copyTo(bcg.submat(rect));
         Imgproc.resize(bcg, result, result.size());
+        Imgproc.threshold(result, result, 127,255, Imgproc.THRESH_BINARY_INV);
         result = new ConvertFrame().BcgFrameMerger(result);
         return result;
     }

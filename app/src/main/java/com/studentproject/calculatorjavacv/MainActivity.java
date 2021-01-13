@@ -129,7 +129,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     @Override
     public void onCameraViewStarted(int width, int height)
     {
-        //mRGBA = new Mat(height, width, CvType.CV_8UC4);
+        mRGBA = new Mat(height, width, CvType.CV_8UC4);
     }
 
     @Override
@@ -142,7 +142,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRGBA = inputFrame.rgba();
         //draw rectangle on preview
-        Rect targetFrame = new Rect((int)(mRGBA.width()*0.10), (int)(mRGBA.height()*0.20), (int)(mRGBA.width()*0.8), 200);
+        Rect targetFrame = new Rect((int)(mRGBA.width()*0.10), (int)(mRGBA.height()*0.20), (int)(mRGBA.width()*0.8), (int)(mRGBA.height()*0.20));
         Imgproc.rectangle(mRGBA, targetFrame.tl(), targetFrame.br(), new Scalar(0, 0, 205), 3);
         //crop frame to rectangle size
         Mat mCROP = new Mat(mRGBA.clone(), targetFrame);
@@ -151,16 +151,21 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         List<MatOfPoint> mEDGES = new ArrayList<>(); //list of detected edges
         Mat hierarchy = new Mat();
         Imgproc.findContours(mTHRESH, mEDGES, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_NONE); //searching for contours
+        Mat mSKIN = new Mat();
         if (!mEDGES.isEmpty() && !hierarchy.empty())
         {
             mRGBAT = markContoursOnFrame(mEDGES, mRGBA);
-            //Core.flip(mSKIN,mRGBAT,1);
-            Imgproc.resize(mRGBAT,mRGBAT,mRGBA.size()); // przeskalowanie klatki
-            return mRGBAT; //zwrócenie klatki do wyświetlenia
+            Mat mT = mRGBAT.t();
+            Core.flip(mT,mSKIN,1);
+            Imgproc.resize(mSKIN,mSKIN,mRGBA.size()); // przeskalowanie klatki
+            return mSKIN; //zwrócenie klatki do wyświetlenia
         }
         else
         {
-            return mRGBA;
+            Mat mT = mRGBA.t();
+            Core.flip(mT, mSKIN, 1);
+            Imgproc.resize(mSKIN,mSKIN,mRGBA.size());
+            return mSKIN;
         }
     }
 
