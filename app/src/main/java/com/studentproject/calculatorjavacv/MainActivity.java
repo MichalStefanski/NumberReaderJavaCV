@@ -31,17 +31,20 @@ import org.opencv.imgproc.Imgproc;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
-import android.hardware.Camera;
 import android.os.Bundle;
 import android.view.SurfaceView;
+import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
-
+import android.view.View;
 
 public class MainActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2
 {
 
     JavaCameraView javaCameraView;
-    Mat mRGBA, mRGBAT;
+    Mat mRGBA, mRGBAT, mCROP, mTHRESH, mSKIN, mT, hierarchy;
+    TextView textView;
+    Button calcButton;
     private static final int CAMERA_PERMISSION_CODE = 100;
     private static final String MODEL_PATH = "mnist.tflite";
     Classifier classifier;
@@ -117,6 +120,16 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         javaCameraView.setVisibility(SurfaceView.VISIBLE);
         javaCameraView.setCvCameraViewListener(MainActivity.this);
 
+        textView = findViewById(R.id.predicted_text);
+        calcButton = findViewById(R.id.calc_button);
+
+        calcButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+            }
+        });
+
         checkPermission(Manifest.permission.CAMERA, CAMERA_PERMISSION_CODE);
         try
         {
@@ -145,24 +158,24 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         Rect targetFrame = new Rect((int)(mRGBA.width()*0.10), (int)(mRGBA.height()*0.20), (int)(mRGBA.width()*0.8), (int)(mRGBA.height()*0.20));
         Imgproc.rectangle(mRGBA, targetFrame.tl(), targetFrame.br(), new Scalar(0, 0, 205), 3);
         //crop frame to rectangle size
-        Mat mCROP = new Mat(mRGBA.clone(), targetFrame);
+        mCROP = new Mat(mRGBA.clone(), targetFrame);
         //mTHRESH to list of contours
-        Mat mTHRESH = new ConvertFrame().BlackWhiteFrame(mCROP); //convert frame to black/white threshold
+        mTHRESH = new ConvertFrame().BlackWhiteFrame(mCROP); //convert frame to black/white threshold
         List<MatOfPoint> mEDGES = new ArrayList<>(); //list of detected edges
-        Mat hierarchy = new Mat();
+        hierarchy = new Mat();
         Imgproc.findContours(mTHRESH, mEDGES, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_NONE); //searching for contours
-        Mat mSKIN = new Mat();
+        mSKIN = new Mat();
         if (!mEDGES.isEmpty() && !hierarchy.empty())
         {
             mRGBAT = markContoursOnFrame(mEDGES, mRGBA);
-            Mat mT = mRGBAT.t();
+            mT = mRGBAT.t();
             Core.flip(mT,mSKIN,1);
             Imgproc.resize(mSKIN,mSKIN,mRGBA.size()); // przeskalowanie klatki
             return mSKIN; //zwrócenie klatki do wyświetlenia
         }
         else
         {
-            Mat mT = mRGBA.t();
+            mT = mRGBA.t();
             Core.flip(mT, mSKIN, 1);
             Imgproc.resize(mSKIN,mSKIN,mRGBA.size());
             return mSKIN;
@@ -176,7 +189,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         List<Rect> boundRects = new ArrayList<>();
         String tt = "";
 
-        Rect boundRect ;//= new Rect();
+        Rect boundRect ;
         for (int i = 0; i < listOfContours.size(); i++) {
             figures = new MatOfPoint2f();
             Imgproc.approxPolyDP(new MatOfPoint2f(listOfContours.get(i).toArray()), figures, 3, true);
@@ -203,7 +216,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             t = classifier.getResult(new Mat(new ConvertFrame().BlackWhiteFrame(frame.clone()), rect));
             tt += t;
         }
-        Imgproc.putText(frame, tt, new Point(90,50), 1, 4.0, new Scalar(255,255,255), 3);
         return frame;
     }
 

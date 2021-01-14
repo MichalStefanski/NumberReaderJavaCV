@@ -24,7 +24,7 @@
         android:id="@+id/predicted_text"
         android:layout_width="match_parent"
         android:layout_height="122dp"
-        android:text="s"
+        android:text="Press button below to read values"
         android:textSize="20sp"
         android:textStyle="bold" />
 
