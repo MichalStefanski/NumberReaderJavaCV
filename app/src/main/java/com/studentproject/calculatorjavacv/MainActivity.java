@@ -32,6 +32,8 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.SurfaceView;
 import android.widget.Button;
 import android.widget.TextView;
@@ -48,6 +50,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private static final int CAMERA_PERMISSION_CODE = 100;
     private static final String MODEL_PATH = "mnist.tflite";
     Classifier classifier;
+    String tt;
+    List <Mat> detectedContours;
 
     BaseLoaderCallback baseLoaderCallback = new BaseLoaderCallback(MainActivity.this)
     {
@@ -126,7 +130,12 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         calcButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
+                tt = "";
+                for (int i = 0; i < detectedContours.size(); i++)
+                {
+                    tt += classifier.getResult(detectedContours.get(i));
+                }
+                textView.setText(tt);
             }
         });
 
@@ -155,7 +164,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRGBA = inputFrame.rgba();
         //draw rectangle on preview
-        Rect targetFrame = new Rect((int)(mRGBA.width()*0.10), (int)(mRGBA.height()*0.20), (int)(mRGBA.width()*0.8), (int)(mRGBA.height()*0.20));
+        Rect targetFrame = new Rect((int)(mRGBA.width()*0.20), (int)(mRGBA.height()*0.10), (int)(mRGBA.width()*0.2), (int)(mRGBA.height()*0.8));
         Imgproc.rectangle(mRGBA, targetFrame.tl(), targetFrame.br(), new Scalar(0, 0, 205), 3);
         //crop frame to rectangle size
         mCROP = new Mat(mRGBA.clone(), targetFrame);
@@ -167,10 +176,15 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         mSKIN = new Mat();
         if (!mEDGES.isEmpty() && !hierarchy.empty())
         {
-            mRGBAT = markContoursOnFrame(mEDGES, mRGBA);
+            //mRGBAT = markContoursOnFrame(mEDGES, mRGBA);
+            mRGBAT = PaintContoursOnFrames(mEDGES, mRGBA, new Point((int)(mRGBA.width()*0.20), (int)(mRGBA.height()*0.10)));
             mT = mRGBAT.t();
             Core.flip(mT,mSKIN,1);
             Imgproc.resize(mSKIN,mSKIN,mRGBA.size()); // przeskalowanie klatki
+//            new Handler(Looper.getMainLooper()).post(new Runnable(){
+//                @Override
+//                public void run() {textView.setText(tt);}});
+
             return mSKIN; //zwrócenie klatki do wyświetlenia
         }
         else
@@ -180,6 +194,35 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             Imgproc.resize(mSKIN,mSKIN,mRGBA.size());
             return mSKIN;
         }
+    }
+
+    private Mat PaintContoursOnFrames(List<MatOfPoint> listOfContours, Mat frame, Point xy)
+    {
+        MatOfPoint2f figures;
+        Rect boundRect;
+        String temp;
+        Mat t;
+        Point TL, BR;
+        //tt = "";
+        Point offset = new Point(xy.x, xy.y);
+        detectedContours = new ArrayList<>();
+        for (int i = 0; i < listOfContours.size(); i++)
+        {
+            figures = new MatOfPoint2f();
+            Imgproc.approxPolyDP(new MatOfPoint2f(listOfContours.get(i).toArray()), figures, 3, true);
+            boundRect = Imgproc.boundingRect(new MatOfPoint(figures.toArray()));
+            if ((Math.abs(boundRect.tl().x - boundRect.br().x) > 20) && (Math.abs(boundRect.tl().x - boundRect.br().x) < (frame.width()/2)) && (Math.abs(boundRect.tl().y - boundRect.br().y)) > 20 && (Math.abs(boundRect.tl().y - boundRect.br().y)) < frame.height()) {
+                t = new Mat(boundRect.height, boundRect.width, CvType.CV_8UC1, new Scalar(0));
+                Imgproc.drawContours(t, listOfContours, i, new Scalar(255, 255, 255), -1);
+                TL = new Point(boundRect.tl().x + offset.x, boundRect.tl().y + offset.y);
+                BR = new Point(boundRect.br().x + offset.x, boundRect.br().y + offset.y);
+                Imgproc.rectangle(frame, TL, BR, new Scalar(255, 255, 0), 3);
+                //temp = classifier.getResult(t);
+                //tt += temp;
+                detectedContours.add(t);
+            }
+        }
+        return frame;
     }
 
     private Mat markContoursOnFrame(List<MatOfPoint> listOfContours, Mat zerosFrame) {
