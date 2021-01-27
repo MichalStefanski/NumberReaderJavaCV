@@ -1,7 +1,6 @@
-package com.studentproject.calculatorjavacv;
+package com.studentproject.NumberReaderJavaCV;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -11,6 +10,7 @@ import java.io.IOException;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.opencv.android.BaseLoaderCallback;
@@ -50,26 +50,19 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private static final int CAMERA_PERMISSION_CODE = 100;
     private static final String MODEL_PATH = "mnist.tflite";
     Classifier classifier;
-    String tt;
-    List <Mat> detectedContours;
+        List <Mat> detectedContours;
+    Mat t;
+    List<Mat> tempList;
 
     BaseLoaderCallback baseLoaderCallback = new BaseLoaderCallback(MainActivity.this)
     {
         @Override
         public void onManagerConnected(int status)
         {
-            switch (status)
-            {
-                case BaseLoaderCallback.SUCCESS:
-                {
-                    javaCameraView.enableView();
-                    break;
-                }
-                default:
-                {
-                    super.onManagerConnected(status);
-                    break;
-                }
+            if (status == BaseLoaderCallback.SUCCESS) {
+                javaCameraView.enableView();
+            } else {
+                super.onManagerConnected(status);
             }
         }
     };
@@ -127,18 +120,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         textView = findViewById(R.id.predicted_text);
         calcButton = findViewById(R.id.calc_button);
 
-        calcButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                tt = "";
-                for (int i = 0; i < detectedContours.size(); i++)
-                {
-                    tt += classifier.getResult(detectedContours.get(i));
-                }
-                textView.setText(tt);
-            }
-        });
-
         checkPermission(Manifest.permission.CAMERA, CAMERA_PERMISSION_CODE);
         try
         {
@@ -152,23 +133,46 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     public void onCameraViewStarted(int width, int height)
     {
         mRGBA = new Mat(height, width, CvType.CV_8UC4);
+        try
+        {
+            javaCameraView.turnOnTheFlash();
+        }
+        catch (Exception ignored)
+        {
+
+        }
     }
 
     @Override
     public void onCameraViewStopped()
     {
         mRGBA.release();
+        mT.release();
+        mRGBAT.release();
+        mCROP.release();
+        mTHRESH.release();
+        mSKIN.release();
+        hierarchy.release();
+        try
+        {
+            javaCameraView.turnOffTheFlash();
+        }
+        catch (Exception x)
+        {
+
+        }
     }
 
     @Override
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
+        if (mRGBA != null)
+            mRGBA.release();
         mRGBA = inputFrame.rgba();
-        //draw rectangle on preview
+        if(mSKIN != null )
+            mSKIN.release();
         Rect targetFrame = new Rect((int)(mRGBA.width()*0.20), (int)(mRGBA.height()*0.10), (int)(mRGBA.width()*0.2), (int)(mRGBA.height()*0.8));
         Imgproc.rectangle(mRGBA, targetFrame.tl(), targetFrame.br(), new Scalar(0, 0, 205), 3);
-        //crop frame to rectangle size
         mCROP = new Mat(mRGBA.clone(), targetFrame);
-        //mTHRESH to list of contours
         mTHRESH = new ConvertFrame().BlackWhiteFrame(mCROP); //convert frame to black/white threshold
         List<MatOfPoint> mEDGES = new ArrayList<>(); //list of detected edges
         hierarchy = new Mat();
@@ -176,23 +180,53 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         mSKIN = new Mat();
         if (!mEDGES.isEmpty() && !hierarchy.empty())
         {
-            //mRGBAT = markContoursOnFrame(mEDGES, mRGBA);
             mRGBAT = PaintContoursOnFrames(mEDGES, mRGBA, new Point((int)(mRGBA.width()*0.20), (int)(mRGBA.height()*0.10)));
             mT = mRGBAT.t();
             Core.flip(mT,mSKIN,1);
-            Imgproc.resize(mSKIN,mSKIN,mRGBA.size()); // przeskalowanie klatki
-//            new Handler(Looper.getMainLooper()).post(new Runnable(){
-//                @Override
-//                public void run() {textView.setText(tt);}});
-
-            return mSKIN; //zwrócenie klatki do wyświetlenia
+            Imgproc.resize(mSKIN,mSKIN,mRGBA.size());
         }
         else
         {
             mT = mRGBA.t();
             Core.flip(mT, mSKIN, 1);
             Imgproc.resize(mSKIN,mSKIN,mRGBA.size());
-            return mSKIN;
+        }
+        return mSKIN; //zwrócenie klatki do wyświetlenia
+    }
+
+    public void onClickBtn(View view)
+    {
+        if(detectedContours == null || detectedContours.size() == 0)
+        {
+            new Handler(Looper.getMainLooper()).post(new Runnable(){
+                @Override
+                public void run() {textView.setText("No number detected");}});
+        }
+        else
+        {
+            tempList = detectedContours;
+            StringBuilder tt = new StringBuilder();
+            OperationOnNumber operation = new OperationOnNumber();
+            for (int i = 0; i < tempList.size(); i++)
+            {
+                tt.append(classifier.getResult(tempList.get(i)));
+            }
+            if(tt.length() == 0)
+            {
+                new Handler(Looper.getMainLooper()).post(new Runnable(){
+                    @Override
+                    public void run() {textView.setText("No number detected");}});
+            }
+            else
+            {
+                final String txt = "Number: " + tt.toString() + System.lineSeparator() + operation.getDividers(tt.toString())
+                        + System.lineSeparator() + operation.getFactors(tt.toString())
+                        + System.lineSeparator() + operation.getIsOddNumber(tt.toString())
+                        + System.lineSeparator() + operation.getIsPrimeNumber(tt.toString());
+                new Handler(Looper.getMainLooper()).post(new Runnable(){
+                    @Override
+                    public void run() {textView.setText(txt);}});
+            }
         }
     }
 
@@ -201,9 +235,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         MatOfPoint2f figures;
         Rect boundRect;
         String temp;
-        Mat t;
         Point TL, BR;
-        //tt = "";
+        SortMatOfPoints(listOfContours);
         Point offset = new Point(xy.x, xy.y);
         detectedContours = new ArrayList<>();
         for (int i = 0; i < listOfContours.size(); i++)
@@ -211,55 +244,41 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             figures = new MatOfPoint2f();
             Imgproc.approxPolyDP(new MatOfPoint2f(listOfContours.get(i).toArray()), figures, 3, true);
             boundRect = Imgproc.boundingRect(new MatOfPoint(figures.toArray()));
-            if ((Math.abs(boundRect.tl().x - boundRect.br().x) > 20) && (Math.abs(boundRect.tl().x - boundRect.br().x) < (frame.width()/2)) && (Math.abs(boundRect.tl().y - boundRect.br().y)) > 20 && (Math.abs(boundRect.tl().y - boundRect.br().y)) < frame.height()) {
+            if ((Math.abs(boundRect.tl().x - boundRect.br().x) > (frame.height()*0.10)) && (Math.abs(boundRect.tl().x - boundRect.br().x) < ((frame.width()*0.8)/2)) &&
+                    (Math.abs(boundRect.tl().y - boundRect.br().y)) > (frame.width()*0.05) && (Math.abs(boundRect.tl().y - boundRect.br().y)) < (frame.height()*0.25)) {
                 t = new Mat(boundRect.height, boundRect.width, CvType.CV_8UC1, new Scalar(0));
                 Imgproc.drawContours(t, listOfContours, i, new Scalar(255, 255, 255), -1);
                 TL = new Point(boundRect.tl().x + offset.x, boundRect.tl().y + offset.y);
                 BR = new Point(boundRect.br().x + offset.x, boundRect.br().y + offset.y);
                 Imgproc.rectangle(frame, TL, BR, new Scalar(255, 255, 0), 3);
-                //temp = classifier.getResult(t);
-                //tt += temp;
                 detectedContours.add(t);
             }
         }
+
         return frame;
     }
 
-    private Mat markContoursOnFrame(List<MatOfPoint> listOfContours, Mat zerosFrame) {
-        Mat frame = zerosFrame.clone();
-        Point offset = new Point((int)(frame.width()*0.10), (int)(frame.height()*0.20));
-        MatOfPoint2f figures;
-        List<Rect> boundRects = new ArrayList<>();
-        String tt = "";
-
-        Rect boundRect ;
-        for (int i = 0; i < listOfContours.size(); i++) {
-            figures = new MatOfPoint2f();
-            Imgproc.approxPolyDP(new MatOfPoint2f(listOfContours.get(i).toArray()), figures, 3, true);
-            boundRect = Imgproc.boundingRect(new MatOfPoint(figures.toArray()));
-            try
+    private void SortMatOfPoints(List<MatOfPoint> list)
+    {
+        List<Rect> rectangles = new ArrayList<>();
+        Rect rect;
+        for (int i = 0; i < list.size(); i++)
+        {
+            rect = Imgproc.boundingRect(list.get(i));
+            rectangles.add(rect);
+        }
+        int unsorted = list.size() - 1;
+        for (int i = 0; i < list.size() - 1; i++)
+        {
+            for (int j = 0; j < unsorted; j++)
             {
-                if ((Math.abs(boundRect.tl().x - boundRect.br().x) > 20) && (Math.abs(boundRect.tl().x - boundRect.br().x) < Math.round(frame.width()/2)) && (Math.abs(boundRect.tl().y - boundRect.br().y)) > 20 && (Math.abs(boundRect.tl().y - boundRect.br().y)) < frame.height())
+                if (rectangles.get(j).tl().y > rectangles.get(j+1).tl().y)
                 {
-                    boundRects.add(boundRect);
+                    Collections.swap(list, j, j + 1);
                 }
             }
-            catch (Exception ex)
-            {
-                ex.printStackTrace();
-            }
+            unsorted -= 1;
         }
-
-        for (Rect rect: boundRects)
-        {
-            String t;
-            Point TL = new Point(rect.tl().x + offset.x, rect.tl().y + offset.y);
-            Point BR = new Point(rect.br().x + offset.x, rect.br().y + offset.y);
-            Imgproc.rectangle(frame, TL, BR, new Scalar(255, 255, 0), 3);
-            t = classifier.getResult(new Mat(new ConvertFrame().BlackWhiteFrame(frame.clone()), rect));
-            tt += t;
-        }
-        return frame;
     }
 
     @Override
@@ -269,6 +288,14 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         if (javaCameraView != null)
         {
+            try
+            {
+                javaCameraView.turnOffTheFlash();
+            }
+            catch (Exception x)
+            {
+
+            }
             javaCameraView.disableView();
         }
     }
@@ -280,6 +307,14 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         if (javaCameraView != null)
         {
+            try
+            {
+                javaCameraView.turnOffTheFlash();
+            }
+            catch (Exception x)
+            {
+
+            }
             javaCameraView.disableView();
         }
     }
@@ -288,6 +323,14 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     protected void onResume()
     {
         super.onResume();
+        try
+        {
+            javaCameraView.turnOnTheFlash();
+        }
+        catch (Exception x)
+        {
+
+        }
 
         if (OpenCVLoader.initDebug())
         {

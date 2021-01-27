@@ -1,11 +1,7 @@
-package com.studentproject.calculatorjavacv;
+package com.studentproject.NumberReaderJavaCV;
 
 import android.app.Activity;
 import android.content.res.AssetFileDescriptor;
-import android.os.Bundle;
-
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
 
 import org.opencv.core.Mat;
 import org.tensorflow.lite.Interpreter;

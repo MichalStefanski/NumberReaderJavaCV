@@ -1,6 +1,5 @@
-package com.studentproject.calculatorjavacv;
+package com.studentproject.NumberReaderJavaCV;
 
-import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -23,6 +22,7 @@ public class ConvertFrame
         Imgproc.GaussianBlur(grey, blur, new Size(11,11),0, 0);
         Mat bwFrame = new Mat();
         Imgproc.threshold(blur, bwFrame, 127, 255, Imgproc.THRESH_BINARY);
+
         return bwFrame;
     }
 
@@ -65,8 +65,9 @@ public class ConvertFrame
         }
         inputFrame.copyTo(bcg.submat(rect));
         Imgproc.resize(bcg, result, result.size());
-        Imgproc.threshold(result, result, 127,255, Imgproc.THRESH_BINARY_INV);
+        Imgproc.threshold(result, result, 127,255, Imgproc.THRESH_BINARY);
         result = new ConvertFrame().BcgFrameMerger(result);
+
         return result;
     }
 
@@ -79,7 +80,6 @@ public class ConvertFrame
         t.add(new Mat(inputFrame.height(), inputFrame.width(), CvType.CV_8UC1,new Scalar(255)));
         Mat result = new Mat();
         Core.merge(t, result);
-        //result.copyTo(bcgFrame.submat(new Rect((int)(bcgFrame.width()*0.05), 100, (int)(bcgFrame.width()*0.9), 200)));
         return result;
     }
 }

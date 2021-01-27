@@ -1,4 +1,4 @@
-package com.studentproject.calculatorjavacv;
+package com.studentproject.NumberReaderJavaCV;
 
 import android.content.Context;
 

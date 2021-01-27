@@ -12,31 +12,25 @@
         android:layout_width="match_parent"
         android:layout_height="0dip"
         android:layout_weight="1">
-
         <org.opencv.android.JavaCameraView
             android:id="@+id/basic_camera_view"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent"
+            />
     </RelativeLayout>
-
-
     <TextView
         android:id="@+id/predicted_text"
         android:layout_width="match_parent"
         android:layout_height="122dp"
         android:text="Press button below to read values"
         android:textSize="20sp"
-        android:textStyle="bold" />
-
+        android:textStyle="bold"
+        />
     <Button
         android:id="@+id/calc_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Read Value"
+        android:onClick="onClickBtn"
         />
-    <!--<view
-        android:layout_width="fill_parent"
-        android:layout_height="fill_parent"
-        android:layout_weight="1"></view>-->
-
 </LinearLayout>

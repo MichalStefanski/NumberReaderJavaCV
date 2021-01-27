@@ -173,6 +173,9 @@ public class JavaCameraView extends CameraBridgeViewBase implements PreviewCallb
                         params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
                     }
 
+                    //List<int[]> fpsRange = params.getSupportedPreviewFpsRange();
+                    int fpsNum = 10;
+                    params.setPreviewFrameRate(fpsNum);
                     mCamera.setParameters(params);
                     params = mCamera.getParameters();
 
@@ -224,6 +227,18 @@ public class JavaCameraView extends CameraBridgeViewBase implements PreviewCallb
         }
 
         return result;
+    }
+
+    public void turnOffTheFlash() {
+        Camera.Parameters params = mCamera.getParameters();
+        params.setFlashMode(params.FLASH_MODE_OFF);
+        mCamera.setParameters(params);
+    }
+
+    public void turnOnTheFlash() {
+        Camera.Parameters params = mCamera.getParameters();
+        params.setFlashMode(params.FLASH_MODE_TORCH);
+        mCamera.setParameters(params);
     }
 
     protected void releaseCamera() {
