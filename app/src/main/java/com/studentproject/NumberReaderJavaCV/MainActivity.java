@@ -17,6 +17,7 @@ import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame;
 import org.opencv.android.JavaCameraView;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -26,11 +27,13 @@ import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.android.CameraBridgeViewBase;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -45,13 +48,14 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
     JavaCameraView javaCameraView;
     Mat mRGBA, mRGBAT, mCROP, mTHRESH, mSKIN, mT, hierarchy;
+    Mat kernel;
     TextView textView;
     Button calcButton;
     private static final int CAMERA_PERMISSION_CODE = 100;
     private static final String MODEL_PATH = "mnist.tflite";
     Classifier classifier;
-        List <Mat> detectedContours;
-    Mat t;
+    List <Mat> detectedContours;
+    Mat t, v;
     List<Mat> tempList;
 
     BaseLoaderCallback baseLoaderCallback = new BaseLoaderCallback(MainActivity.this)
@@ -132,6 +136,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     @Override
     public void onCameraViewStarted(int width, int height)
     {
+        kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(3, 3));
         mRGBA = new Mat(height, width, CvType.CV_8UC4);
         try
         {
@@ -209,7 +214,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             OperationOnNumber operation = new OperationOnNumber();
             for (int i = 0; i < tempList.size(); i++)
             {
-                tt.append(classifier.getResult(tempList.get(i)));
+                Mat temp = tempList.get(i).t();
+                tt.append(classifier.getResult(temp));
             }
             if(tt.length() == 0)
             {
@@ -246,15 +252,16 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             boundRect = Imgproc.boundingRect(new MatOfPoint(figures.toArray()));
             if ((Math.abs(boundRect.tl().x - boundRect.br().x) > (frame.height()*0.10)) && (Math.abs(boundRect.tl().x - boundRect.br().x) < ((frame.width()*0.8)/2)) &&
                     (Math.abs(boundRect.tl().y - boundRect.br().y)) > (frame.width()*0.05) && (Math.abs(boundRect.tl().y - boundRect.br().y)) < (frame.height()*0.25)) {
-                t = new Mat(boundRect.height, boundRect.width, CvType.CV_8UC1, new Scalar(0));
+                t = new Mat(frame.height(), frame.width(), CvType.CV_8UC3, new Scalar(0,0,0));
                 Imgproc.drawContours(t, listOfContours, i, new Scalar(255, 255, 255), -1);
+                v = new Mat(t, boundRect);
+                //Imgproc.erode(v,v, kernel, new Point(-1,-1),5);
                 TL = new Point(boundRect.tl().x + offset.x, boundRect.tl().y + offset.y);
                 BR = new Point(boundRect.br().x + offset.x, boundRect.br().y + offset.y);
                 Imgproc.rectangle(frame, TL, BR, new Scalar(255, 255, 0), 3);
-                detectedContours.add(t);
+                detectedContours.add(v);
             }
         }
-
         return frame;
     }
 
@@ -272,7 +279,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         {
             for (int j = 0; j < unsorted; j++)
             {
-                if (rectangles.get(j).tl().y > rectangles.get(j+1).tl().y)
+                if (rectangles.get(j).tl().x > rectangles.get(j+1).tl().x)
                 {
                     Collections.swap(list, j, j + 1);
                 }

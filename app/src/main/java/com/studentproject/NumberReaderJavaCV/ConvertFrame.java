@@ -1,8 +1,12 @@
 package com.studentproject.NumberReaderJavaCV;
 
+import android.graphics.Bitmap;
+
+import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfInt;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
@@ -32,26 +36,27 @@ public class ConvertFrame
         int height = inputFrame.height();
         Rect rect;
         Mat bcg;
-        Mat result = new Mat(28,28, CvType.CV_8UC(inputFrame.channels()));
+        Mat flip = new Mat(28,28, CvType.CV_8UC(inputFrame.channels()));
+        Mat result = new Mat();
 
         Scalar channels;
         switch (inputFrame.channels())
         {
             case 2:
-                channels = new Scalar(255, 255);
+                channels = new Scalar(0, 0);
                 break;
             case 3:
-                channels = new Scalar(255, 255, 255);
+                channels = new Scalar(0, 0, 0);
                 break;
             case 4:
-                channels = new Scalar(255, 255, 255, 255);
+                channels = new Scalar(0, 0, 0, 255);
                 break;
             default:
-                channels = new Scalar(255);
+                channels = new Scalar(0);
         }
         if(width == 0 || height == 0)
         {
-            return result;
+            return flip;
         }
         if (width < height)
         {
@@ -64,10 +69,13 @@ public class ConvertFrame
             rect = new Rect(0, Math.round((float)(width - height) / 2), width, height);
         }
         inputFrame.copyTo(bcg.submat(rect));
-        Imgproc.resize(bcg, result, result.size());
-        Imgproc.threshold(result, result, 127,255, Imgproc.THRESH_BINARY);
-        result = new ConvertFrame().BcgFrameMerger(result);
-
+        Imgproc.resize(bcg, flip, flip.size());
+        Imgproc.threshold(flip, flip, 127,255, Imgproc.THRESH_BINARY);
+        //flip = new ConvertFrame().BcgFrameMerger(flip);
+        Core.flip(flip, result, 1);
+        Bitmap myBitmap;
+        myBitmap = Bitmap.createBitmap(result.width(), result.height(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(result, myBitmap);
         return result;
     }
 

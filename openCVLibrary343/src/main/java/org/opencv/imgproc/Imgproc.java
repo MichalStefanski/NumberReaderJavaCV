@@ -2616,7 +2616,7 @@ public class Imgproc {
     }
 
     //javadoc: erode(src, dst, kernel)
-    public static void erode(Mat src, Mat dst, Mat kernel)
+    public static void erode(Mat src, Mat dst, Mat kernel, int i)
     {
         
         erode_4(src.nativeObj, dst.nativeObj, kernel.nativeObj);
